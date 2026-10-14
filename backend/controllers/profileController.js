@@ -54,11 +54,8 @@ const upsertProfile = async (req, res) => {
       });
     }
 
-    const validRoles = [
-      'Python Developer Intern',
-      'Frontend Developer Intern',
-      'Data Analyst Intern',
-    ];
+    const ROLES = require('../data/roles');
+    const validRoles = ROLES.map((r) => r.title);
     if (!validRoles.includes(preferredRole)) {
       return res.status(400).json({
         message: `Invalid role selected. Must be one of: ${validRoles.join(', ')}`,
@@ -79,6 +76,9 @@ const upsertProfile = async (req, res) => {
     // Parse daily time
     const timeInMins = Number(dailyTimeMinutes) || 60;
 
+    const matchedRole = ROLES.find((r) => r.title === preferredRole);
+    const category = matchedRole ? matchedRole.category : 'Career Track';
+
     let profile = await StudentProfile.findOne({ user: req.user._id });
 
     if (profile) {
@@ -90,6 +90,7 @@ const upsertProfile = async (req, res) => {
       profile.currentYear = currentYear;
       profile.knownSkills = skillsArray;
       profile.preferredRole = preferredRole;
+      profile.trackCategory = category;
       profile.dailyTimeMinutes = timeInMins;
 
       await profile.save();
@@ -113,6 +114,7 @@ const upsertProfile = async (req, res) => {
         currentYear,
         knownSkills: skillsArray,
         preferredRole,
+        trackCategory: category,
         dailyTimeMinutes: timeInMins,
       });
 

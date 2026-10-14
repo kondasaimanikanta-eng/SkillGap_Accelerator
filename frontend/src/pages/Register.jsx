@@ -74,23 +74,23 @@ const Register = () => {
         {/* Brand Header */}
         <div className="text-center mb-4">
           <div
-            className="d-inline-flex align-items-center justify-content-center bg-primary text-white rounded-4 shadow-sm mb-3"
+            className="brand-logo-box mx-auto mb-3"
             style={{ width: '56px', height: '56px', fontSize: '1.75rem' }}
           >
-            <i className="bi bi-mortarboard-fill"></i>
+            <i className="bi bi-lightning-charge-fill text-white"></i>
           </div>
-          <h1 className="h3 fw-bold mb-1">SkillGap-to-Action</h1>
+          <h1 className="h3 fw-bold mb-1">SkillGap<span className="brand-gradient-text">to Action</span></h1>
           <p className="text-muted small">
-            Start your personalized 7-day internship roadmap
+            Accelerate your technical career with diagnostic skill sprints
           </p>
         </div>
 
         {/* Registration Card */}
         <div className="card-saas p-4 p-sm-5">
           <div className="mb-4">
-            <h2 className="h4 fw-bold mb-1">Create Student Account</h2>
+            <h2 className="h4 fw-bold mb-1">Create Your Account</h2>
             <p className="text-muted small mb-0">
-              Register now to assess your technical readiness and bridge gaps.
+              Register now to uncover technical skill gaps and start your 7-day action sprint.
             </p>
           </div>
 

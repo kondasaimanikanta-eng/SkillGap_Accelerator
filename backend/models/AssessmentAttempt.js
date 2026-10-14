@@ -69,11 +69,7 @@ const assessmentAttemptSchema = new mongoose.Schema(
     role: {
       type: String,
       required: true,
-      enum: [
-        'Python Developer Intern',
-        'Frontend Developer Intern',
-        'Data Analyst Intern',
-      ],
+      trim: true,
     },
     attemptNumber: {
       type: Number,
@@ -112,5 +108,10 @@ const assessmentAttemptSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+// High-performance compound indexes for rapid user and role lookups
+assessmentAttemptSchema.index({ user: 1, createdAt: -1 });
+assessmentAttemptSchema.index({ user: 1, role: 1, createdAt: -1 });
+assessmentAttemptSchema.index({ role: 1 });
 
 module.exports = mongoose.model('AssessmentAttempt', assessmentAttemptSchema);

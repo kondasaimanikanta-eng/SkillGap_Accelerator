@@ -9,23 +9,13 @@ const getDashboardStats = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    // Fetch profile
-    const profile = await StudentProfile.findOne({ user: userId });
-
-    // Fetch latest assessment attempt
-    const latestAttempt = await AssessmentAttempt.findOne({ user: userId }).sort({
-      createdAt: -1,
-    });
-
-    // Total attempts count
-    const totalAttempts = await AssessmentAttempt.countDocuments({
-      user: userId,
-    });
-
-    // Fetch current learning plan
-    const learningPlan = await LearningPlan.findOne({ user: userId }).sort({
-      createdAt: -1,
-    });
+    // Execute queries in parallel using Promise.all and .lean() for optimal throughput
+    const [profile, latestAttempt, totalAttempts, learningPlan] = await Promise.all([
+      StudentProfile.findOne({ user: userId }).lean(),
+      AssessmentAttempt.findOne({ user: userId }).sort({ createdAt: -1 }).lean(),
+      AssessmentAttempt.countDocuments({ user: userId }),
+      LearningPlan.findOne({ user: userId }).sort({ createdAt: -1 }).lean(),
+    ]);
 
     // Derived statistics
     const role = profile ? profile.preferredRole : 'Not Selected';

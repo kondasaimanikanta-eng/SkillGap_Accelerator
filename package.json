@@ -1,12 +1,30 @@
 {
-  "name": "skillgap-to-action-workspace",
+  "name": "skillgap-to-action-platform",
   "version": "1.0.0",
-  "description": "SkillGap-to-Action Internship Preparation MVP",
+  "description": "SkillGap to Action — Intelligent Technical Skill Gap Diagnostic & Career Action Platform",
   "scripts": {
-    "install:all": "cd backend && npm install && cd ../frontend && npm install",
-    "seed": "cd backend && node scripts/seed.js",
-    "test": "node verify-workflow.js",
+    "start": "cd backend && npm start",
     "dev:backend": "cd backend && npm run dev",
-    "dev:frontend": "cd frontend && npm run dev"
-  }
+    "dev:frontend": "cd frontend && npm run dev",
+    "install:all": "cd backend && npm install && cd ../frontend && npm install",
+    "build:frontend": "cd frontend && npm run build",
+    "seed": "cd backend && node scripts/seed.js",
+    "test": "node run-tests.js",
+    "test:unit": "node --test tests/unit/*.test.js",
+    "test:integration": "node --test tests/integration/*.test.js",
+    "test:e2e": "node verify-workflow.js",
+    "test:all": "node run-tests.js && node verify-workflow.js"
+  },
+  "keywords": [
+    "skill-gap",
+    "diagnostic",
+    "learning-plan",
+    "internship-prep",
+    "career-readiness",
+    "react",
+    "express",
+    "mongodb"
+  ],
+  "author": "SkillGap Team",
+  "license": "MIT"
 }

@@ -39,12 +39,12 @@ const studentProfileSchema = new mongoose.Schema(
     },
     preferredRole: {
       type: String,
-      required: [true, 'Preferred internship role is required'],
-      enum: [
-        'Python Developer Intern',
-        'Frontend Developer Intern',
-        'Data Analyst Intern',
-      ],
+      required: [true, 'Preferred target role is required'],
+      trim: true,
+    },
+    trackCategory: {
+      type: String,
+      default: 'Career Track',
     },
     dailyTimeMinutes: {
       type: Number,
@@ -58,5 +58,9 @@ const studentProfileSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+// Performance indexes for role and category filtering
+studentProfileSchema.index({ preferredRole: 1 });
+studentProfileSchema.index({ trackCategory: 1 });
 
 module.exports = mongoose.model('StudentProfile', studentProfileSchema);

@@ -14,7 +14,7 @@ const Profile = () => {
     branch: '',
     currentYear: '3rd Year',
     knownSkills: '',
-    preferredRole: 'Frontend Developer Intern',
+    preferredRole: 'Frontend Engineer',
     dailyTimeMinutes: 60,
   });
 
@@ -48,7 +48,7 @@ const Profile = () => {
               knownSkills: Array.isArray(res.profile.knownSkills)
                 ? res.profile.knownSkills.join(', ')
                 : res.profile.knownSkills || '',
-              preferredRole: res.profile.preferredRole || 'Frontend Developer Intern',
+              preferredRole: res.profile.preferredRole || 'Frontend Engineer',
               dailyTimeMinutes: res.profile.dailyTimeMinutes || 60,
             });
             setIsEditing(true);
@@ -83,30 +83,29 @@ const Profile = () => {
     ) {
       setMessage({
         type: 'danger',
-        text: 'Please provide Name, College, and Branch/Specialization.',
+        text: 'Please provide Name, College/Organization, and Branch/Specialization.',
       });
       return;
     }
 
     try {
       setSaving(true);
-      const res = await profileService.saveProfile(formData);
+      await profileService.saveProfile(formData);
       await refreshUser();
       setMessage({
         type: 'success',
         text: isEditing
-          ? 'Profile updated successfully!'
-          : 'Profile created! Ready to analyze your internship skills.',
+          ? 'Profile & track preferences updated successfully!'
+          : 'Profile created! Ready to launch your skill gap diagnostic.',
       });
 
-      // Brief delay before redirecting to assessment or dashboard
       setTimeout(() => {
         if (!isEditing) {
           navigate('/assessment');
         } else {
           navigate('/dashboard');
         }
-      }, 1000);
+      }, 900);
     } catch (err) {
       setMessage({
         type: 'danger',
@@ -121,7 +120,7 @@ const Profile = () => {
 
   if (loading) {
     return (
-      <div className="text-center py-5">
+      <div className="container-xl text-center py-5">
         <div className="spinner-border text-primary" role="status">
           <span className="visually-hidden">Loading...</span>
         </div>
@@ -131,22 +130,20 @@ const Profile = () => {
   }
 
   return (
-    <div className="container-fluid max-w-4xl px-0" style={{ maxWidth: '860px' }}>
+    <div className="container-xl py-2" style={{ maxWidth: '960px' }}>
       {/* Page Header */}
       <div className="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-4">
         <div>
           <h1 className="h3 fw-bold mb-1">
-            {isEditing ? 'Student Profile & Preferences' : 'Complete Your Profile'}
+            {isEditing ? 'Career Profile & Track Settings' : 'Initialize Your Career Profile'}
           </h1>
           <p className="text-muted small mb-0">
-            {isEditing
-              ? 'Keep your educational background and internship target current.'
-              : 'Tell us your academic track and target internship role to personalize your diagnostic assessment.'}
+            Configure your technical focus track and daily study budget to calibrate your diagnostic tests and 7-day action plans.
           </p>
         </div>
         {isEditing && (
           <span className="badge badge-soft-primary align-self-start align-self-sm-center">
-            <i className="bi bi-shield-check me-1"></i> Verified Profile
+            <i className="bi bi-shield-check me-1"></i> Active Track: {formData.preferredRole}
           </span>
         )}
       </div>
@@ -170,10 +167,10 @@ const Profile = () => {
       {/* Main Profile Form Card */}
       <div className="card-saas p-4 p-md-5 mb-4">
         <form onSubmit={handleSubmit}>
-          {/* Section 1: Academic Information */}
+          {/* Section 1: Academic & Professional Background */}
           <div className="mb-4">
             <h2 className="h6 fw-bold text-uppercase text-secondary mb-3 d-flex align-items-center gap-2" style={{ letterSpacing: '0.05em' }}>
-              <i className="bi bi-mortarboard text-primary fs-5"></i> Academic Details
+              <i className="bi bi-person-lines-fill text-primary fs-5"></i> Academic & Professional Background
             </h2>
 
             <div className="row g-3">
@@ -195,14 +192,14 @@ const Profile = () => {
 
               <div className="col-12 col-md-6">
                 <label htmlFor="college" className="form-label small fw-semibold text-secondary">
-                  College / University
+                  College / University / Organization
                 </label>
                 <input
                   type="text"
                   id="college"
                   name="college"
                   className="form-control"
-                  placeholder="e.g. Stanford University / IIT Delhi"
+                  placeholder="e.g. Stanford University / Tech Corp"
                   value={formData.college}
                   onChange={handleChange}
                   required
@@ -211,7 +208,7 @@ const Profile = () => {
 
               <div className="col-12 col-md-4">
                 <label htmlFor="degree" className="form-label small fw-semibold text-secondary">
-                  Degree
+                  Degree / Professional Level
                 </label>
                 <select
                   id="degree"
@@ -226,20 +223,22 @@ const Profile = () => {
                   <option value="BCA">BCA</option>
                   <option value="MCA">MCA</option>
                   <option value="M.Tech">M.Tech / M.S.</option>
-                  <option value="Other">Other Degree</option>
+                  <option value="Self-Taught">Self-Taught Engineer</option>
+                  <option value="Industry Pro">Working Professional</option>
+                  <option value="Other">Other</option>
                 </select>
               </div>
 
               <div className="col-12 col-md-4">
                 <label htmlFor="branch" className="form-label small fw-semibold text-secondary">
-                  Branch / Department
+                  Branch / Department / Specialization
                 </label>
                 <input
                   type="text"
                   id="branch"
                   name="branch"
                   className="form-control"
-                  placeholder="e.g. Computer Science, IT, ECE"
+                  placeholder="e.g. Computer Science, Full Stack, Software Eng"
                   value={formData.branch}
                   onChange={handleChange}
                   required
@@ -248,7 +247,7 @@ const Profile = () => {
 
               <div className="col-12 col-md-4">
                 <label htmlFor="currentYear" className="form-label small fw-semibold text-secondary">
-                  Current Year of Study
+                  Academic / Career Stage
                 </label>
                 <select
                   id="currentYear"
@@ -258,11 +257,11 @@ const Profile = () => {
                   onChange={handleChange}
                   required
                 >
-                  <option value="1st Year">1st Year</option>
-                  <option value="2nd Year">2nd Year</option>
-                  <option value="3rd Year">3rd Year</option>
-                  <option value="4th Year">4th Year</option>
-                  <option value="Postgraduate">Postgraduate</option>
+                  <option value="1st Year">1st Year Student</option>
+                  <option value="2nd Year">2nd Year Student</option>
+                  <option value="3rd Year">3rd Year Student</option>
+                  <option value="4th Year">4th Year Finalist</option>
+                  <option value="Postgraduate">Postgraduate / Master's</option>
                 </select>
               </div>
             </div>
@@ -270,40 +269,27 @@ const Profile = () => {
 
           <hr className="my-4 text-muted opacity-25" />
 
-          {/* Section 2: Career Goal & Internship Role */}
+          {/* Section 2: Career Track Selection */}
           <div className="mb-4">
             <h2 className="h6 fw-bold text-uppercase text-secondary mb-3 d-flex align-items-center gap-2" style={{ letterSpacing: '0.05em' }}>
-              <i className="bi bi-briefcase text-primary fs-5"></i> Internship Preferences
+              <i className="bi bi-briefcase-fill text-primary fs-5"></i> Target Career Track & Role
             </h2>
 
             <div className="row g-3">
               <div className="col-12">
                 <label className="form-label small fw-semibold text-secondary mb-2">
-                  Select Target Internship Role (Diagnostic Assessment Target)
+                  Choose Your Target Technical Track
                 </label>
                 <div className="row g-3">
-                  {[
-                    {
-                      title: 'Python Developer Intern',
-                      desc: 'Backend APIs, OOP, Data Structures, DBs',
-                      icon: 'bi-filetype-py',
-                    },
-                    {
-                      title: 'Frontend Developer Intern',
-                      desc: 'React, Modern JavaScript, CSS/Flexbox, DOM',
-                      icon: 'bi-code-slash',
-                    },
-                    {
-                      title: 'Data Analyst Intern',
-                      desc: 'SQL Joins, Pandas, Statistics, Visuals',
-                      icon: 'bi-bar-chart-line',
-                    },
-                  ].map((role) => (
-                    <div key={role.title} className="col-12 col-md-4">
+                  {availableRoles.map((role) => (
+                    <div key={role.id} className="col-12 col-md-4">
                       <div
-                        className={`option-card h-100 ${
+                        className={`option-card h-100 position-relative ${
                           formData.preferredRole === role.title ? 'selected' : ''
                         }`}
+                        style={{
+                          borderLeft: `4px solid ${role.color || '#4f46e5'}`,
+                        }}
                         onClick={() =>
                           setFormData((prev) => ({
                             ...prev,
@@ -311,11 +297,16 @@ const Profile = () => {
                           }))
                         }
                       >
-                        <div className="d-flex align-items-center gap-2 mb-2">
-                          <i className={`bi ${role.icon} text-primary fs-4`}></i>
-                          <h3 className="h6 fw-bold mb-0">{role.title}</h3>
+                        <div className="d-flex justify-content-between align-items-start mb-2">
+                          <i className={`bi ${role.icon} fs-4`} style={{ color: role.color || '#4f46e5' }}></i>
+                          <span className={`badge ${role.category === 'Internship Module' ? 'bg-warning text-dark' : 'bg-primary bg-opacity-10 text-primary'} small`}>
+                            {role.badge || role.category}
+                          </span>
                         </div>
-                        <p className="text-muted small mb-0">{role.desc}</p>
+                        <h3 className="h6 fw-bold mb-1 text-dark">{role.title}</h3>
+                        <p className="text-muted small mb-0" style={{ fontSize: '0.78rem' }}>
+                          {role.description}
+                        </p>
                       </div>
                     </div>
                   ))}
@@ -324,7 +315,7 @@ const Profile = () => {
 
               <div className="col-12 col-md-6 mt-4">
                 <label htmlFor="dailyTimeMinutes" className="form-label small fw-semibold text-secondary">
-                  Available Learning Time Per Day
+                  Daily Micro-Learning Budget
                 </label>
                 <select
                   id="dailyTimeMinutes"
@@ -339,54 +330,46 @@ const Profile = () => {
                   <option value="90">90 minutes / day (Accelerated)</option>
                   <option value="120">120 minutes / day (Intensive)</option>
                 </select>
-                <small className="text-muted d-block mt-1">
-                  Your 7-day personalized plan will tailor task durations to this budget.
-                </small>
+                <div className="form-text small">
+                  The rule-based plan generator scales task durations and reading links to this budget.
+                </div>
               </div>
 
               <div className="col-12 col-md-6 mt-4">
                 <label htmlFor="knownSkills" className="form-label small fw-semibold text-secondary">
-                  Known Technical Skills (comma separated)
+                  Current Known Skills (Comma Separated)
                 </label>
                 <input
                   type="text"
                   id="knownSkills"
                   name="knownSkills"
                   className="form-control"
-                  placeholder="e.g. C++, Java, Git, HTML, SQL"
+                  placeholder="e.g. JavaScript, React, Python, Git, Docker"
                   value={formData.knownSkills}
                   onChange={handleChange}
                 />
-                <small className="text-muted d-block mt-1">
-                  Helps identify background knowledge and context.
-                </small>
+                <div className="form-text small">
+                  Helps identify baseline strengths and calibrate priority gaps.
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Action Button */}
-          <div className="d-flex justify-content-end gap-3 mt-4 pt-3 border-top">
+          <div className="pt-3 border-top d-flex justify-content-end gap-2">
             <button
               type="submit"
               disabled={saving}
-              className="btn-primary-saas px-4 py-2"
+              className="btn btn-primary-saas px-4 py-2"
             >
               {saving ? (
                 <>
-                  <span
-                    className="spinner-border spinner-border-sm me-2"
-                    role="status"
-                    aria-hidden="true"
-                  ></span>
-                  Saving Profile...
-                </>
-              ) : isEditing ? (
-                <>
-                  <i className="bi bi-check-lg"></i> Update Profile
+                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                  <span>Saving Profile...</span>
                 </>
               ) : (
                 <>
-                  Save & Take Assessment <i className="bi bi-arrow-right"></i>
+                  <i className="bi bi-check2-circle"></i>
+                  <span>{isEditing ? 'Save Changes' : 'Complete Setup & Launch Diagnostic'}</span>
                 </>
               )}
             </button>

@@ -103,4 +103,9 @@ learningPlanSchema.methods.updateProgress = function () {
   this.isCompleted = this.completedTasks === this.totalTasks;
 };
 
+// Performance indexes for fast query resolution
+learningPlanSchema.index({ user: 1, createdAt: -1 });
+learningPlanSchema.index({ assessmentAttemptId: 1 });
+learningPlanSchema.index({ 'tasks._id': 1 });
+
 module.exports = mongoose.model('LearningPlan', learningPlanSchema);

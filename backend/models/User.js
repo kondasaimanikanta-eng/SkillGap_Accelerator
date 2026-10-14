@@ -50,4 +50,13 @@ userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
+// Security sanitization: prevent sensitive password hash leaks in JSON outputs
+userSchema.set('toJSON', {
+  transform: (doc, ret) => {
+    delete ret.password;
+    delete ret.__v;
+    return ret;
+  },
+});
+
 module.exports = mongoose.model('User', userSchema);

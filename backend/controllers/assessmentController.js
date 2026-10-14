@@ -3,7 +3,18 @@ const QUESTIONS = require('../data/questions');
 const AssessmentAttempt = require('../models/AssessmentAttempt');
 const StudentProfile = require('../models/StudentProfile');
 
-// @desc    Get all available internship roles
+const ROLE_ALIASES = {
+  'Frontend Engineer': 'Frontend Developer Intern',
+  'Full Stack Software Engineer': 'Frontend Developer Intern',
+  'Python & Backend Developer': 'Python Developer Intern',
+  'Data Analyst & BI': 'Data Analyst Intern',
+};
+
+const resolveRoleName = (role) => {
+  return ROLE_ALIASES[role] || role;
+};
+
+// @desc    Get all available internship and career roles
 // @route   GET /api/roles
 // @access  Public
 const getRoles = (req, res) => {
@@ -23,16 +34,17 @@ const getQuestions = async (req, res) => {
 
     // Decode URL encoded role title
     const decodedRole = decodeURIComponent(role);
+    const resolvedRole = resolveRoleName(decodedRole);
 
-    // Find questions matching role and set
+    // Find questions matching role (or its alias) and set
     let questions = QUESTIONS.filter(
-      (q) => q.role === decodedRole && q.set === setNumber
+      (q) => (q.role === decodedRole || q.role === resolvedRole) && q.set === setNumber
     );
 
     // Fallback if set 2 requested but empty, fallback to set 1
     if (questions.length === 0 && setNumber > 1) {
       questions = QUESTIONS.filter(
-        (q) => q.role === decodedRole && q.set === 1
+        (q) => (q.role === decodedRole || q.role === resolvedRole) && q.set === 1
       );
     }
 
@@ -81,8 +93,9 @@ const submitAssessment = async (req, res) => {
     }
 
     // Get question bank for this role and set
+    const resolvedRole = resolveRoleName(role);
     const questionBank = QUESTIONS.filter(
-      (q) => q.role === role && q.set === Number(setNumber)
+      (q) => (q.role === role || q.role === resolvedRole) && q.set === Number(setNumber)
     );
 
     if (questionBank.length === 0) {
@@ -232,7 +245,8 @@ const getAssessmentHistory = async (req, res) => {
   try {
     const attempts = await AssessmentAttempt.find({ user: req.user._id })
       .sort({ createdAt: -1 })
-      .select('-answers');
+      .select('-answers')
+      .lean();
 
     return res.json({
       success: true,
@@ -252,7 +266,7 @@ const getAttemptById = async (req, res) => {
     const attempt = await AssessmentAttempt.findOne({
       _id: req.params.id,
       user: req.user._id,
-    });
+    }).lean();
 
     if (!attempt) {
       return res.status(404).json({ message: 'Assessment attempt not found' });
@@ -276,9 +290,9 @@ const getComparison = async (req, res) => {
     const query = { user: req.user._id };
     if (role) query.role = role;
 
-    const attempts = await AssessmentAttempt.find(query).sort({
-      createdAt: 1,
-    });
+    const attempts = await AssessmentAttempt.find(query)
+      .sort({ createdAt: 1 })
+      .lean();
 
     if (attempts.length === 0) {
       return res.status(404).json({

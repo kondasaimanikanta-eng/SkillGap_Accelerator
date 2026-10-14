@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { dashboardService } from '../services/api';
+import { dashboardService, planService, assessmentService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 const Dashboard = () => {
@@ -8,15 +8,27 @@ const Dashboard = () => {
   const navigate = useNavigate();
 
   const [stats, setStats] = useState(null);
+  const [activeTab, setActiveTab] = useState('gaps'); // 'gaps', 'tasks', 'benchmarks', 'internship'
+  const [allRoles, setAllRoles] = useState([]);
+  const [planTasks, setPlanTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [taskTogglingId, setTaskTogglingId] = useState(null);
 
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
         setLoading(true);
-        const data = await dashboardService.getStats();
-        setStats(data);
+        const [dashData, rolesData, currentPlanData] = await Promise.all([
+          dashboardService.getStats(),
+          assessmentService.getRoles().catch(() => ({ roles: [] })),
+          planService.getCurrentPlan().catch(() => ({ hasPlan: false })),
+        ]);
+        setStats(dashData);
+        if (rolesData.roles) setAllRoles(rolesData.roles);
+        if (currentPlanData.hasPlan && currentPlanData.plan?.tasks) {
+          setPlanTasks(currentPlanData.plan.tasks);
+        }
       } catch (err) {
         console.error('Error fetching dashboard:', err);
         setError('Failed to load dashboard metrics.');
@@ -28,26 +40,40 @@ const Dashboard = () => {
     fetchDashboard();
   }, []);
 
+  const handleToggleTaskInDashboard = async (taskId) => {
+    try {
+      setTaskTogglingId(taskId);
+      const res = await planService.toggleTask(taskId);
+      setPlanTasks((prev) =>
+        prev.map((t) => (t._id === taskId ? { ...t, completed: res.task.completed } : t))
+      );
+      // Refresh dashboard stats to keep progress percentage accurate
+      const updatedStats = await dashboardService.getStats();
+      setStats(updatedStats);
+    } catch (err) {
+      console.error('Failed to toggle task:', err);
+    } finally {
+      setTaskTogglingId(null);
+    }
+  };
+
   if (loading) {
     return (
-      <div className="text-center py-5">
+      <div className="container-xl text-center py-5">
         <div className="spinner-border text-primary" role="status">
           <span className="visually-hidden">Loading...</span>
         </div>
-        <p className="text-muted mt-2">Loading your internship progress...</p>
+        <p className="text-muted mt-2 fw-semibold">Loading your career skill dashboard...</p>
       </div>
     );
   }
 
   const {
-    selectedRole,
+    selectedRole = 'Frontend Engineer',
     studentName,
-    college,
-    degree,
-    branch,
-    dailyTimeMinutes,
+    dailyTimeMinutes = 60,
     latestAssessment,
-    totalAttempts,
+    totalAttempts = 0,
     weakestSkills = [],
     strongSkills = [],
     learningPlanProgress = {},
@@ -55,73 +81,107 @@ const Dashboard = () => {
     nextStepMessage,
   } = stats || {};
 
+  const currentRoleMeta = allRoles.find((r) => r.title === selectedRole) || {};
+  const benchmarkScore = currentRoleMeta.benchmarkPassingScore || 75;
+  const currentScore = latestAssessment ? latestAssessment.scorePercentage : null;
+  const isPassing = currentScore !== null && currentScore >= benchmarkScore;
+
   return (
-    <div className="container-fluid max-w-7xl px-0">
-      {/* Welcome Hero Banner */}
+    <div className="container-xl py-2">
+      {/* Colorful Gradient Hero Banner */}
       <div
         className="card-saas p-4 p-md-5 mb-4 text-white position-relative overflow-hidden"
         style={{
-          background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)',
-          border: 'none',
+          background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 35%, #4338ca 75%, #0891b2 100%)',
+          border: '1px solid rgba(255, 255, 255, 0.15)',
         }}
       >
-        <div className="row align-items-center position-relative" style={{ zIndex: 1 }}>
+        <div className="row align-items-center">
           <div className="col-12 col-lg-8">
-            <span className="badge bg-white text-primary fw-bold mb-3 px-3 py-1 rounded-pill small">
-              College Internship Readiness Dashboard
-            </span>
+            <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
+              <span className="badge bg-white text-primary fw-bold px-3 py-1 rounded-pill small">
+                <i className="bi bi-crosshair me-1"></i> Technical Skill Gap to Action
+              </span>
+              <span className="badge bg-info bg-opacity-25 text-white border border-info border-opacity-50 px-2 py-1 rounded-pill small">
+                Target: {selectedRole}
+              </span>
+              <span className="badge bg-warning bg-opacity-25 text-warning border border-warning border-opacity-50 px-2 py-1 rounded-pill small">
+                ⚡ {dailyTimeMinutes}m / day budget
+              </span>
+            </div>
+
             <h1 className="h2 fw-bold text-white mb-2">
-              Welcome back, {studentName || user?.name}!
+              Welcome back, {studentName || user?.name || 'Engineer'}!
             </h1>
-            <p className="text-light opacity-75 mb-3" style={{ maxWidth: '600px' }}>
-              Target Role: <strong className="text-white">{selectedRole}</strong> &bull;{' '}
-              {college || 'Campus Prep'} &bull; {dailyTimeMinutes}m / day budget
+            <p className="text-light opacity-90 mb-4" style={{ maxWidth: '640px' }}>
+              Pinpoint precise knowledge gaps with micro-diagnostics, execute your daily 7-day action sprint, and verify score improvements.
             </p>
 
-            {/* Dynamic Next Step Alert Bar */}
+            {/* Next Action Alert Bar */}
             <div className="p-3 bg-white bg-opacity-10 rounded-3 border border-white border-opacity-20 d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3">
               <div className="d-flex align-items-center gap-2">
-                <i className="bi bi-info-circle-fill text-warning fs-5"></i>
+                <i className="bi bi-lightning-charge-fill text-warning fs-5"></i>
                 <span className="small text-white fw-medium">{nextStepMessage}</span>
               </div>
-              {nextStep === 'assessment' && (
-                <Link to="/assessment" className="btn btn-warning btn-sm fw-bold px-3 text-nowrap">
-                  Take Assessment <i className="bi bi-arrow-right"></i>
-                </Link>
-              )}
-              {nextStep === 'plan' && (
-                <Link to="/plan" className="btn btn-primary btn-sm fw-bold px-3 text-nowrap bg-white text-primary border-0">
-                  Generate 7-Day Plan <i className="bi bi-arrow-right"></i>
-                </Link>
-              )}
-              {nextStep === 'tasks' && (
-                <Link to="/plan" className="btn btn-success btn-sm fw-bold px-3 text-nowrap">
-                  Continue Day Plan <i className="bi bi-arrow-right"></i>
-                </Link>
-              )}
-              {nextStep === 'retest' && (
-                <Link to="/retest" className="btn btn-warning btn-sm fw-bold px-3 text-nowrap">
-                  Take Retest Now <i className="bi bi-arrow-right"></i>
-                </Link>
-              )}
-              {nextStep === 'completed' && (
-                <Link to="/retest" className="btn btn-info btn-sm fw-bold px-3 text-nowrap text-white">
-                  View Retest Comparison <i className="bi bi-arrow-right"></i>
-                </Link>
-              )}
+              <div>
+                {nextStep === 'assessment' && (
+                  <Link to="/assessment" className="btn btn-warning btn-sm fw-bold px-3 text-nowrap">
+                    Take Diagnostic <i className="bi bi-arrow-right"></i>
+                  </Link>
+                )}
+                {nextStep === 'plan' && (
+                  <Link to="/plan" className="btn btn-light btn-sm fw-bold px-3 text-nowrap text-primary">
+                    Generate 7-Day Plan <i className="bi bi-arrow-right"></i>
+                  </Link>
+                )}
+                {nextStep === 'tasks' && (
+                  <Link to="/plan" className="btn btn-success btn-sm fw-bold px-3 text-nowrap">
+                    Resume Action Plan <i className="bi bi-arrow-right"></i>
+                  </Link>
+                )}
+                {nextStep === 'retest' && (
+                  <Link to="/retest" className="btn btn-warning btn-sm fw-bold px-3 text-nowrap">
+                    Take Retest Verification <i className="bi bi-arrow-right"></i>
+                  </Link>
+                )}
+                {nextStep === 'completed' && (
+                  <Link to="/retest" className="btn btn-info btn-sm fw-bold px-3 text-nowrap text-white">
+                    View Score Growth <i className="bi bi-arrow-right"></i>
+                  </Link>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="col-12 col-lg-4 text-center text-lg-end mt-4 mt-lg-0 d-none d-lg-block">
-            <div className="p-3 bg-white bg-opacity-10 rounded-4 d-inline-block text-center border border-white border-opacity-15">
-              <div className="small text-uppercase opacity-75 fw-semibold mb-1">
-                Assessment Status
+          {/* Right Hero Readiness Card */}
+          <div className="col-12 col-lg-4 text-center text-lg-end mt-4 mt-lg-0">
+            <div className="p-4 bg-white bg-opacity-10 rounded-4 d-inline-block text-start border border-white border-opacity-20" style={{ minWidth: '240px' }}>
+              <div className="small text-uppercase text-white-50 fw-semibold mb-1">
+                Diagnostic Mastery
               </div>
-              <div className="display-6 fw-bold text-white mb-0">
-                {latestAssessment ? `${latestAssessment.scorePercentage}%` : 'Not Taken'}
+              <div className="d-flex align-items-baseline gap-2 mb-1">
+                <span className="display-5 fw-bold text-white">
+                  {currentScore !== null ? `${currentScore}%` : 'Pending'}
+                </span>
+                {currentScore !== null && (
+                  <span className={`badge ${isPassing ? 'bg-success' : 'bg-warning text-dark'} small`}>
+                    {isPassing ? 'Benchmarked' : `Target: ${benchmarkScore}%`}
+                  </span>
+                )}
+              </div>
+              <div className="progress progress-saas mb-2" style={{ height: '7px' }}>
+                <div
+                  className="progress-bar"
+                  style={{
+                    width: `${currentScore || 0}%`,
+                    background: isPassing ? '#10b981' : '#f59e0b',
+                  }}
+                ></div>
               </div>
               <small className="text-light opacity-75">
-                {latestAssessment ? `Score (${latestAssessment.correctCount}/${latestAssessment.totalQuestions})` : 'Diagnostic Pending'}
+                {latestAssessment
+                  ? `Attempt #${latestAssessment.attemptNumber} (${latestAssessment.correctCount}/${latestAssessment.totalQuestions} questions)`
+                  : 'Diagnostic assessment not yet logged'}
               </small>
             </div>
           </div>
@@ -134,218 +194,368 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* 4 Metric Stats Cards */}
+      {/* 4 Colorful KPI Metric Cards */}
       <div className="row g-3 mb-4">
-        {/* Metric 1: Latest Score */}
+        {/* Metric 1: Benchmark Score (Indigo) */}
         <div className="col-12 col-sm-6 col-xl-3">
-          <div className="card-saas p-4 h-100">
+          <div className="card-saas card-stat-indigo p-3 h-100">
             <div className="d-flex justify-content-between align-items-start mb-2">
-              <span className="text-muted small fw-semibold text-uppercase">
-                Assessment Score
-              </span>
-              <div className="p-2 rounded-3 bg-primary bg-opacity-10 text-primary">
-                <i className="bi bi-clipboard-data-fill fs-5"></i>
+              <span className="text-muted small fw-semibold text-uppercase">Diagnostic Score</span>
+              <div className="icon-bubble icon-bubble-indigo">
+                <i className="bi bi-bullseye"></i>
               </div>
             </div>
-            <div className="h3 fw-bold mb-1">
-              {latestAssessment ? `${latestAssessment.scorePercentage}%` : 'Pending'}
+            <div className="h3 fw-bold mb-1 text-dark">
+              {currentScore !== null ? `${currentScore}%` : 'Not Taken'}
             </div>
             <p className="text-muted small mb-0">
               {latestAssessment
-                ? `Attempt #${latestAssessment.attemptNumber} completed`
-                : 'Take your diagnostic quiz'}
+                ? `Benchmark: ${benchmarkScore}% (${isPassing ? 'Achieved' : 'Action plan needed'})`
+                : 'Click to launch diagnostic'}
             </p>
           </div>
         </div>
 
-        {/* Metric 2: Completed Tasks */}
+        {/* Metric 2: Weak Skills Identified (Amber) */}
         <div className="col-12 col-sm-6 col-xl-3">
-          <div className="card-saas p-4 h-100">
+          <div className="card-saas card-stat-amber p-3 h-100">
             <div className="d-flex justify-content-between align-items-start mb-2">
-              <span className="text-muted small fw-semibold text-uppercase">
-                Tasks Completed
-              </span>
-              <div className="p-2 rounded-3 bg-success bg-opacity-10 text-success">
-                <i className="bi bi-check2-circle fs-5"></i>
+              <span className="text-muted small fw-semibold text-uppercase">Identified Gaps</span>
+              <div className="icon-bubble icon-bubble-amber">
+                <i className="bi bi-exclamation-triangle"></i>
               </div>
             </div>
-            <div className="h3 fw-bold mb-1">
-              {learningPlanProgress.completedTasks || 0} / {learningPlanProgress.totalTasks || 7}
+            <div className="h3 fw-bold mb-1 text-dark">
+              {weakestSkills.length} <span className="fs-6 fw-normal text-muted">topics</span>
             </div>
             <p className="text-muted small mb-0">
-              {learningPlanProgress.remainingTasks || 0} tasks remaining
+              {weakestSkills.length > 0
+                ? `${weakestSkills.length} priorities assigned to 7-day plan`
+                : 'Zero gaps detected'}
             </p>
           </div>
         </div>
 
-        {/* Metric 3: 7-Day Plan Progress */}
+        {/* Metric 3: Action Plan Tasks (Emerald) */}
         <div className="col-12 col-sm-6 col-xl-3">
-          <div className="card-saas p-4 h-100">
+          <div className="card-saas card-stat-emerald p-3 h-100">
             <div className="d-flex justify-content-between align-items-start mb-2">
-              <span className="text-muted small fw-semibold text-uppercase">
-                Plan Progress
-              </span>
-              <div className="p-2 rounded-3 bg-info bg-opacity-10 text-info">
-                <i className="bi bi-bar-chart-steps fs-5"></i>
+              <span className="text-muted small fw-semibold text-uppercase">Plan Completion</span>
+              <div className="icon-bubble icon-bubble-emerald">
+                <i className="bi bi-check2-circle"></i>
               </div>
             </div>
-            <div className="h3 fw-bold mb-1">
-              {learningPlanProgress.progressPercentage || 0}%
+            <div className="h3 fw-bold mb-1 text-dark">
+              {learningPlanProgress.completedTasks || 0} / {learningPlanProgress.totalTasks || 7}
             </div>
-            <div className="progress progress-saas mt-2">
+            <div className="progress progress-saas mt-2 mb-1" style={{ height: '6px' }}>
               <div
-                className="progress-bar"
+                className="progress-bar bg-success"
                 style={{ width: `${learningPlanProgress.progressPercentage || 0}%` }}
               ></div>
             </div>
+            <p className="text-muted small mb-0">
+              {learningPlanProgress.progressPercentage || 0}% of 7-day action sprint done
+            </p>
           </div>
         </div>
 
-        {/* Metric 4: Retest / Attempts */}
+        {/* Metric 4: Retest Attempts & Growth (Purple) */}
         <div className="col-12 col-sm-6 col-xl-3">
-          <div className="card-saas p-4 h-100">
+          <div className="card-saas card-stat-purple p-3 h-100">
             <div className="d-flex justify-content-between align-items-start mb-2">
-              <span className="text-muted small fw-semibold text-uppercase">
-                Attempts Logged
-              </span>
-              <div className="p-2 rounded-3 bg-warning bg-opacity-10 text-warning">
-                <i className="bi bi-arrow-repeat fs-5"></i>
+              <span className="text-muted small fw-semibold text-uppercase">Attempts & Retest</span>
+              <div className="icon-bubble icon-bubble-purple">
+                <i className="bi bi-graph-up-arrow"></i>
               </div>
             </div>
-            <div className="h3 fw-bold mb-1">{totalAttempts || 0}</div>
+            <div className="h3 fw-bold mb-1 text-dark">{totalAttempts}</div>
             <p className="text-muted small mb-0">
-              {totalAttempts >= 2 ? 'Retest completed' : 'Retest after plan'}
+              {totalAttempts >= 2
+                ? 'Retest verified & score jump recorded'
+                : 'Retest unlocked after completing tasks'}
             </p>
           </div>
         </div>
       </div>
 
-      {/* Two Column Section: Weak Skills & Roadmap Action */}
-      <div className="row g-4 mb-4">
-        {/* Left Column: Weak Skills & Identified Gaps */}
-        <div className="col-12 col-lg-7">
-          <div className="card-saas p-4 h-100">
-            <div className="d-flex justify-content-between align-items-center mb-3">
-              <h2 className="h5 fw-bold mb-0">
-                <i className="bi bi-bullseye text-danger me-2"></i>
-                Identified Skill Gaps
-              </h2>
-              {latestAssessment && (
-                <Link to="/results" className="text-primary text-decoration-none small fw-semibold">
-                  View Full Breakdown <i className="bi bi-arrow-right"></i>
-                </Link>
-              )}
-            </div>
-
-            {weakestSkills.length > 0 ? (
-              <div>
-                <p className="text-muted small mb-3">
-                  Based on your latest assessment, these topics showed incorrect answers and represent high-priority practice areas:
-                </p>
-                <div className="d-flex flex-wrap gap-2 mb-3">
-                  {weakestSkills.map((skill, idx) => (
-                    <span key={idx} className="badge badge-soft-danger py-2 px-3">
-                      <i className="bi bi-exclamation-circle me-1"></i> {skill}
-                    </span>
-                  ))}
-                </div>
-
-                {strongSkills.length > 0 && (
-                  <div className="mt-4 pt-3 border-top">
-                    <h3 className="h6 fw-semibold text-muted text-uppercase small mb-2">
-                      Strong Topics Already Mastered:
-                    </h3>
-                    <div className="d-flex flex-wrap gap-2">
-                      {strongSkills.map((skill, idx) => (
-                        <span key={idx} className="badge badge-soft-success py-1 px-2 small">
-                          <i className="bi bi-check-circle me-1"></i> {skill}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : latestAssessment ? (
-              <div className="text-center py-4">
-                <div className="text-success display-6 mb-2">
-                  <i className="bi bi-patch-check-fill"></i>
-                </div>
-                <h3 className="h5 fw-bold">No Critical Gaps Detected!</h3>
-                <p className="text-muted small mb-0">
-                  You scored exceptionally well across all tested topics for {selectedRole}.
-                </p>
-              </div>
-            ) : (
-              <div className="text-center py-4">
-                <div className="text-muted display-6 mb-2">
-                  <i className="bi bi-clipboard2-check"></i>
-                </div>
-                <h3 className="h6 fw-bold">Assessment Not Taken Yet</h3>
-                <p className="text-muted small mb-3">
-                  Take the diagnostic assessment to reveal which topics need practice for your internship.
-                </p>
-                <Link to="/assessment" className="btn-primary-saas btn-sm">
-                  Start Assessment
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right Column: 7-Day Plan Snapshot & Retest */}
-        <div className="col-12 col-lg-5">
-          <div className="card-saas p-4 h-100 d-flex flex-column justify-content-between">
-            <div>
-              <div className="d-flex justify-content-between align-items-center mb-3">
-                <h2 className="h5 fw-bold mb-0">
-                  <i className="bi bi-calendar2-range text-primary me-2"></i>
-                  Action Plan Roadmap
-                </h2>
-                <Link to="/plan" className="text-primary text-decoration-none small fw-semibold">
-                  Open Plan <i className="bi bi-arrow-right"></i>
-                </Link>
-              </div>
-
-              <div className="p-3 bg-light rounded-3 mb-3">
-                <div className="d-flex justify-content-between small text-muted mb-1">
-                  <span>Weekly Plan Completion</span>
-                  <span className="fw-bold text-dark">{learningPlanProgress.progressPercentage || 0}%</span>
-                </div>
-                <div className="progress progress-saas">
-                  <div
-                    className="progress-bar"
-                    style={{ width: `${learningPlanProgress.progressPercentage || 0}%` }}
-                  ></div>
-                </div>
-              </div>
-
-              <ul className="list-unstyled small mb-4">
-                <li className="d-flex align-items-center gap-2 mb-2">
-                  <i className="bi bi-check-circle-fill text-success"></i>
-                  <span>Personalized 7 daily micro-tasks tailored to your gaps</span>
-                </li>
-                <li className="d-flex align-items-center gap-2 mb-2">
-                  <i className="bi bi-check-circle-fill text-success"></i>
-                  <span>Official documentation & proven free resources</span>
-                </li>
-                <li className="d-flex align-items-center gap-2 mb-2">
-                  <i className="bi bi-check-circle-fill text-success"></i>
-                  <span>Retest module to quantify improvement before applying</span>
-                </li>
-              </ul>
-            </div>
-
-            <div className="d-grid gap-2">
-              <Link to="/plan" className="btn-primary-saas w-100">
-                <i className="bi bi-list-task"></i> Manage 7-Day Learning Plan
-              </Link>
-              <Link to="/retest" className="btn-outline-saas w-100 justify-content-center">
-                <i className="bi bi-arrow-repeat"></i> Go to Progress & Retest
-              </Link>
-            </div>
-          </div>
+      {/* Interactive Tabs Header */}
+      <div className="card-saas p-2 mb-4 bg-light border">
+        <div className="d-flex flex-wrap gap-1">
+          <button
+            onClick={() => setActiveTab('gaps')}
+            className={`interactive-tab-btn ${activeTab === 'gaps' ? 'active' : ''}`}
+          >
+            <i className="bi bi-diagram-3-fill me-1 text-danger"></i>
+            Skill Gap Breakdown ({weakestSkills.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('tasks')}
+            className={`interactive-tab-btn ${activeTab === 'tasks' ? 'active' : ''}`}
+          >
+            <i className="bi bi-list-check me-1 text-success"></i>
+            Today's Action Tasks ({planTasks.filter((t) => !t.completed).length} pending)
+          </button>
+          <button
+            onClick={() => setActiveTab('benchmarks')}
+            className={`interactive-tab-btn ${activeTab === 'benchmarks' ? 'active' : ''}`}
+          >
+            <i className="bi bi-shield-check me-1 text-primary"></i>
+            Career Role Benchmarks
+          </button>
+          <button
+            onClick={() => setActiveTab('internship')}
+            className={`interactive-tab-btn ${activeTab === 'internship' ? 'active' : ''}`}
+          >
+            <i className="bi bi-mortarboard-fill me-1 text-warning"></i>
+            Internship Hub Spotlight
+          </button>
         </div>
       </div>
+
+      {/* TAB CONTENT 1: SKILL GAPS */}
+      {activeTab === 'gaps' && (
+        <div className="card-saas p-4 mb-4">
+          <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+            <div>
+              <h2 className="h5 fw-bold mb-1">
+                <i className="bi bi-exclamation-circle-fill text-danger me-2"></i>
+                Identified Skill Gaps for {selectedRole}
+              </h2>
+              <p className="text-muted small mb-0">
+                These topics directly caused lost points on your diagnostic assessment.
+              </p>
+            </div>
+            {latestAssessment && (
+              <Link to="/results" className="btn btn-outline-saas btn-sm">
+                Full Results Review <i className="bi bi-arrow-right"></i>
+              </Link>
+            )}
+          </div>
+
+          {weakestSkills.length > 0 ? (
+            <div className="row g-3">
+              {weakestSkills.map((skill, idx) => (
+                <div key={idx} className="col-12 col-md-6">
+                  <div className="p-3 rounded-3 border bg-light h-100 d-flex flex-column justify-content-between">
+                    <div>
+                      <div className="d-flex justify-content-between align-items-start mb-1">
+                        <span className="badge bg-danger bg-opacity-10 text-danger fw-bold small">
+                          Priority Gap #{idx + 1}
+                        </span>
+                        <span className="badge bg-secondary bg-opacity-10 text-secondary small">
+                          Day {idx + 1} in Action Plan
+                        </span>
+                      </div>
+                      <h3 className="h6 fw-bold text-dark mb-1">{skill}</h3>
+                      <p className="text-muted small mb-3">
+                        Targeted in your 7-day personalized micro-tasks with free official documentation and code drills.
+                      </p>
+                    </div>
+                    <div className="d-flex gap-2">
+                      <Link to="/plan" className="btn btn-primary-saas btn-sm py-1 px-3">
+                        <i className="bi bi-play-circle"></i> Start Micro-Task
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-5">
+              <div className="icon-bubble icon-bubble-emerald mx-auto mb-3">
+                <i className="bi bi-check-lg fs-3"></i>
+              </div>
+              <h3 className="h5 fw-bold">No High Priority Skill Gaps Detected!</h3>
+              <p className="text-muted small mb-3" style={{ maxWidth: '480px', margin: '0 auto' }}>
+                You have passed all benchmark diagnostic questions for your role, or haven't taken the assessment yet.
+              </p>
+              <Link to="/assessment" className="btn btn-primary-saas">
+                Launch Diagnostic Assessment <i className="bi bi-arrow-right"></i>
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB CONTENT 2: TODAY'S ACTION TASKS (Interactive in dashboard) */}
+      {activeTab === 'tasks' && (
+        <div className="card-saas p-4 mb-4">
+          <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+            <div>
+              <h2 className="h5 fw-bold mb-1">
+                <i className="bi bi-check2-all text-success me-2"></i>
+                Interactive 7-Day Sprint Checklist
+              </h2>
+              <p className="text-muted small mb-0">
+                You can mark micro-tasks complete directly from here without leaving the dashboard.
+              </p>
+            </div>
+            <Link to="/plan" className="btn btn-outline-saas btn-sm">
+              Full Plan View <i className="bi bi-arrow-right"></i>
+            </Link>
+          </div>
+
+          {planTasks.length > 0 ? (
+            <div className="d-flex flex-column gap-2">
+              {planTasks.map((t) => (
+                <div
+                  key={t._id}
+                  className={`p-3 rounded-3 border d-flex align-items-center justify-content-between ${
+                    t.completed ? 'bg-light text-muted' : 'bg-white'
+                  }`}
+                  style={{
+                    borderLeft: t.completed ? '4px solid #10b981' : '4px solid #4f46e5',
+                  }}
+                >
+                  <div className="d-flex align-items-center gap-3">
+                    <input
+                      type="checkbox"
+                      className="form-check-input mt-0"
+                      checked={t.completed}
+                      disabled={taskTogglingId === t._id}
+                      onChange={() => handleToggleTaskInDashboard(t._id)}
+                      style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                    />
+                    <div>
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="badge bg-primary bg-opacity-10 text-primary small fw-semibold">
+                          Day {t.dayNumber}
+                        </span>
+                        <strong className={`small ${t.completed ? 'text-decoration-line-through text-muted' : 'text-dark'}`}>
+                          {t.title}
+                        </strong>
+                      </div>
+                      <div className="text-muted small">
+                        Skill: <strong>{t.skillName}</strong> &bull; Duration: {t.durationMinutes} mins
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    {t.resourceLink && (
+                      <a
+                        href={t.resourceLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn btn-sm btn-outline-secondary py-1 px-2"
+                        title={t.resourceTitle}
+                      >
+                        <i className="bi bi-box-arrow-up-right me-1"></i> Docs
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-5">
+              <i className="bi bi-calendar-x fs-1 text-muted mb-2 d-block"></i>
+              <h3 className="h6 fw-bold">No Active Action Plan</h3>
+              <p className="text-muted small mb-3">
+                Complete your diagnostic assessment to automatically generate your 7-day personalized micro-sprint.
+              </p>
+              <Link to="/assessment" className="btn btn-primary-saas">
+                Take Diagnostic Now
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB CONTENT 3: CAREER ROLE BENCHMARKS */}
+      {activeTab === 'benchmarks' && (
+        <div className="card-saas p-4 mb-4">
+          <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+            <div>
+              <h2 className="h5 fw-bold mb-1">
+                <i className="bi bi-award-fill text-primary me-2"></i>
+                Technical Benchmarks by Career Track
+              </h2>
+              <p className="text-muted small mb-0">
+                Industry standards required to clear technical screenings.
+              </p>
+            </div>
+            <Link to="/profile" className="btn btn-outline-saas btn-sm">
+              Change Target Track <i className="bi bi-arrow-right"></i>
+            </Link>
+          </div>
+
+          <div className="row g-3">
+            {allRoles.map((role) => (
+              <div key={role.id} className="col-12 col-md-6">
+                <div
+                  className={`p-3 rounded-3 border h-100 ${
+                    role.title === selectedRole ? 'border-primary bg-primary bg-opacity-10' : 'bg-light'
+                  }`}
+                >
+                  <div className="d-flex justify-content-between align-items-start mb-2">
+                    <div className="d-flex align-items-center gap-2">
+                      <i className={`bi ${role.icon} fs-4 text-primary`}></i>
+                      <div>
+                        <h3 className="h6 fw-bold text-dark mb-0">{role.title}</h3>
+                        <span className="badge bg-secondary bg-opacity-10 text-secondary small">
+                          {role.category || 'Career Track'}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="badge bg-success small">
+                      Benchmark: {role.benchmarkPassingScore}%
+                    </span>
+                  </div>
+                  <p className="text-muted small mb-2">{role.description}</p>
+                  <div className="d-flex flex-wrap gap-1">
+                    {role.requiredSkills.slice(0, 4).map((s, i) => (
+                      <span key={i} className="badge bg-white text-dark border small">
+                        {s}
+                      </span>
+                    ))}
+                    {role.requiredSkills.length > 4 && (
+                      <span className="badge bg-white text-muted border small">
+                        +{role.requiredSkills.length - 4} more
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* TAB CONTENT 4: INTERNSHIP SPOTLIGHT */}
+      {activeTab === 'internship' && (
+        <div className="card-saas p-4 mb-4 bg-light border">
+          <div className="row align-items-center">
+            <div className="col-12 col-lg-8">
+              <span className="badge bg-warning text-dark fw-bold mb-2 px-3 py-1 rounded-pill small">
+                🎓 Dedicated Module Available
+              </span>
+              <h2 className="h4 fw-bold text-dark mb-2">
+                Looking for College & Campus Placement Internships?
+              </h2>
+              <p className="text-muted small mb-3">
+                We maintain an independent, dedicated <strong>Internship Module</strong> with campus-to-corporate readiness checklists, top screening round question drills, and interview preparation guides.
+              </p>
+              <div className="d-flex gap-2">
+                <Link to="/internship" className="btn btn-primary-saas">
+                  Launch Internship Module <i className="bi bi-arrow-right"></i>
+                </Link>
+                <Link to="/assessment?role=Frontend%20Developer%20Intern" className="btn btn-outline-saas">
+                  Take Frontend Intern Diagnostic
+                </Link>
+              </div>
+            </div>
+            <div className="col-12 col-lg-4 mt-3 mt-lg-0 text-center">
+              <div className="p-3 bg-white rounded-3 border d-inline-block shadow-sm">
+                <i className="bi bi-mortarboard-fill text-warning fs-1 d-block mb-1"></i>
+                <strong className="text-dark d-block">Campus Placement Ready</strong>
+                <small className="text-muted">Over 25 high-frequency screening drills</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

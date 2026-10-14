@@ -185,7 +185,8 @@ const getCurrentPlan = async (req, res) => {
   try {
     const plan = await LearningPlan.findOne({ user: req.user._id })
       .sort({ createdAt: -1 })
-      .populate('assessmentAttemptId', 'scorePercentage weakTopics strongTopics attemptNumber');
+      .populate('assessmentAttemptId', 'scorePercentage weakTopics strongTopics attemptNumber')
+      .lean();
 
     if (!plan) {
       return res.status(404).json({

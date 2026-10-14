@@ -165,7 +165,7 @@ const Assessment = () => {
               </span>
             </div>
             <h1 className="h4 fw-bold mb-0">
-              Internship Skill Gap Analyzer
+              Technical Skill Gap Diagnostic Analyzer
             </h1>
           </div>
 
