@@ -1,0 +1,12 @@
+{
+  "name": "skillgap-to-action-workspace",
+  "version": "1.0.0",
+  "description": "SkillGap-to-Action Internship Preparation MVP",
+  "scripts": {
+    "install:all": "cd backend && npm install && cd ../frontend && npm install",
+    "seed": "cd backend && node scripts/seed.js",
+    "test": "node verify-workflow.js",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev"
+  }
+}
